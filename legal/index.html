@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>プライバシーポリシー | BotTimer</title>
+  <meta name="description" content="iOS / Android アプリ「BotTimer」のプライバシーポリシーです。">
+  <style>
+    :root {
+      --text: #1a1a1a;
+      --muted: #555;
+      --border: #e0e0e0;
+      --bg: #ffffff;
+      --link: #2563EB;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #f0f0f0;
+        --muted: #aaa;
+        --border: #333;
+        --bg: #111;
+        --link: #4FC3F7;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+        "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+    }
+    h1 {
+      font-size: 26px;
+      margin: 0 0 4px;
+      letter-spacing: 0.02em;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    h2 {
+      font-size: 18px;
+      margin: 36px 0 12px;
+      padding-left: 12px;
+      border-left: 3px solid var(--link);
+    }
+    p, li { font-size: 15px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    a { color: var(--link); }
+    code {
+      background: rgba(127, 127, 127, 0.15);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .lead {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    footer {
+      margin-top: 64px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>プライバシーポリシー</h1>
+    <div class="meta">
+      対象アプリ: <strong>BotTimer</strong> / 最終更新日: 2026年5月16日
+    </div>
+
+    <p class="lead">
+      本プライバシーポリシーは、BotTimer（以下「本アプリ」）における利用者情報の取扱いについて定めるものです。本アプリは利用者の個人情報を収集・送信しないことを基本方針とし、必要最小限の情報のみを利用者端末内で保管します。
+    </p>
+
+    <h2>1. 取得する情報</h2>
+    <p>本アプリは、以下の情報のみを<strong>利用者の端末内</strong>に保存します。これらの情報は当開発者を含むいかなる第三者にも送信されません。</p>
+    <ul>
+      <li>SwitchBot API トークン・シークレット・デバイス ID（利用者ご自身で入力した値）</li>
+      <li>タイマー設定値（初期時間、警告時間、ロックモード、インターバル設定など）</li>
+      <li>進行中のタイマーの終了予定時刻（アプリ再起動後のタイマー復元のため）</li>
+    </ul>
+
+    <h2>2. 情報の利用目的</h2>
+    <p>取得した情報は、本アプリのタイマー機能および SwitchBot 機器の制御を実現する目的でのみ使用します。広告配信、利用分析、その他の目的では一切使用しません。</p>
+
+    <h2>3. 通信先となる外部サービス</h2>
+    <p>本アプリは以下の外部サービスとのみ通信します。いずれも利用者自身の操作に基づくものであり、当開発者が運営するサーバーは存在しません。</p>
+    <ul>
+      <li><strong>SwitchBot API</strong>（<code>api.switch-bot.com</code>）<br>
+      利用者が入力した認証情報を用いて、SwitchBot 機器の操作・一覧取得を行います。送信されるのはご自身の認証情報と機器操作コマンドのみで、当開発者は通信内容を傍受・保管しません。<br>
+      SwitchBot 社のプライバシーポリシーは <a href="https://www.switch-bot.com/pages/switchbot-privacy-policy" target="_blank" rel="noopener">こちら</a> をご参照ください。</li>
+    </ul>
+
+    <h2>4. プッシュ通知について</h2>
+    <p>タイマー終了をお知らせするために、iOS/Android のローカル通知機能を使用します。通知は利用者の端末内で完結し、外部サーバーから送信されるものではありません。</p>
+
+    <h2>5. 解析ツール・トラッキング</h2>
+    <p>本アプリは Google Analytics、Firebase Analytics、広告 SDK、クラッシュレポートツール等の解析ツールを<strong>一切使用していません</strong>。利用者の行動を追跡することはありません。</p>
+
+    <h2>6. 第三者への情報提供</h2>
+    <p>本アプリは利用者の情報を第三者に提供することはありません。前述の SwitchBot API への通信は、利用者ご自身の指示に基づき行われるものです。</p>
+
+    <h2>7. 情報の管理</h2>
+    <p>本アプリで保存される情報は、利用者の端末内のローカルストレージ（iOS: UserDefaults、Android: SharedPreferences）に保管されます。当開発者は当該情報にアクセスする手段を持ちません。</p>
+
+    <h2>8. 利用者の権利</h2>
+    <ul>
+      <li>設定画面から各種設定値を編集・削除できます。</li>
+      <li>アプリをアンインストールすることで、本アプリが端末に保存したすべての情報が削除されます。</li>
+    </ul>
+
+    <h2>9. 子どものプライバシー</h2>
+    <p>本アプリは 13 歳未満の子どもを対象としていません。13 歳未満の子どもから意図的に情報を収集することはありません。</p>
+
+    <h2>10. プライバシーポリシーの変更</h2>
+    <p>本ポリシーは予告なく変更されることがあります。変更があった場合は本ページ上で告知し、最終更新日を更新します。</p>
+
+    <h2>11. SwitchBot との関係</h2>
+    <p>本アプリは SwitchBot 社の公式アプリではなく、同社が提供する公開 API を用いた個人開発の非公式アプリです。SwitchBot は SwitchBot 社の商標です。</p>
+
+    <h2>12. お問い合わせ窓口</h2>
+    <p>本ポリシーまたは本アプリに関するお問い合わせは、以下までお願いいたします。</p>
+    <ul>
+      <li>運営: BotTimer</li>
+      <li>E-mail: <a href="mailto:akimasa.dev.ai@gmail.com">akimasa.dev.ai@gmail.com</a></li>
+    </ul>
+
+    <footer>
+      © BotTimer
+    </footer>
+  </main>
+</body>
+</html>

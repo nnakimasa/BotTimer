@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Claude Code / Playwright MCP local working files
+.claude/
+.playwright-mcp/

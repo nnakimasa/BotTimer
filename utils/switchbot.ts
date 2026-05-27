@@ -90,14 +90,25 @@ export const turnOn = (token: string, secret: string, deviceId: string) =>
 export const turnOff = (token: string, secret: string, deviceId: string) =>
   sendCommand(token, secret, deviceId, 'turnOff');
 
+// デモモード用に少し遅延を入れて API 通信を模倣する
+function delayMs(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // 'none' のときは API 呼び出しを行わない。エラー処理は呼び出し側に委ねる。
+// demoMode が true のときは API を叩かず成功扱い（審査用）。
 export async function runAction(
   token: string,
   secret: string,
   deviceId: string,
   action: DeviceAction,
+  demoMode = false,
 ): Promise<void> {
   if (action === 'none') return;
+  if (demoMode) {
+    await delayMs(300);
+    return;
+  }
   await sendCommand(token, secret, deviceId, action === 'on' ? 'turnOn' : 'turnOff');
 }
 
@@ -108,7 +119,26 @@ function classify(deviceType: string, isInfrared: boolean): DeviceCategory {
   return SUPPORTED_DEVICE_TYPES.has(deviceType) ? 'supported' : 'unsupported';
 }
 
-export async function getDevices(token: string, secret: string): Promise<SwitchBotDevice[]> {
+// デモモードで表示する架空デバイス。審査員が「選択」ボタンを試せるようにする。
+const DEMO_DEVICES: SwitchBotDevice[] = [
+  {
+    deviceId: 'DEMO-PLUG-MINI-001',
+    deviceName: 'Demo Plug Mini',
+    deviceType: 'Plug Mini (JP)',
+    isInfrared: false,
+    category: 'supported',
+  },
+];
+
+export async function getDevices(
+  token: string,
+  secret: string,
+  demoMode = false,
+): Promise<SwitchBotDevice[]> {
+  if (demoMode) {
+    await delayMs(300);
+    return DEMO_DEVICES;
+  }
   const res = await fetch(`${BASE_URL}/devices`, {
     headers: buildHeaders(token, secret),
   });

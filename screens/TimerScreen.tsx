@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, AppState, StyleSheet, Text, TouchableOpacity, Vibration, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Alert, AppState, StyleSheet, Text, TouchableOpacity, Vibration, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -23,6 +23,7 @@ import {
   requestNotificationPermission,
   scheduleTimerEndNotification,
 } from '../utils/notifications';
+import { formatHMSJapanese } from '../components/DurationField';
 
 const WAKE_TAG = 'bottimer';
 
@@ -34,6 +35,18 @@ function fmt(sec: number): string {
 }
 function pad(n: number): string { return String(n).padStart(2, '0'); }
 
+// VoiceOver 用の読み上げラベル（HH:MM:SS を人間語に変換）
+function fmtSpeech(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h}時間`);
+  if (m > 0) parts.push(`${m}分`);
+  if (s > 0 || parts.length === 0) parts.push(`${s}秒`);
+  return parts.join('');
+}
+
 function actionErrorLabel(action: DeviceAction): string {
   return action === 'on' ? 'ON失敗' : 'OFF失敗';
 }
@@ -44,6 +57,15 @@ function actionRunningLabel(action: DeviceAction): string {
   return '● タイマー作動中';
 }
 
+const FINE_ADJUST_BUTTONS = [
+  { label: '－1分', a11y: '1分減らす', delta: -60 },
+  { label: '－10秒', a11y: '10秒減らす', delta: -10 },
+  { label: '＋10秒', a11y: '10秒追加', delta: 10 },
+  { label: '＋1分', a11y: '1分追加', delta: 60 },
+] as const;
+
+const FINE_HITSLOP = { top: 8, bottom: 8, left: 4, right: 4 };
+
 interface Props {
   onOpenSettings: () => void;
   settingsVersion: number;
@@ -51,7 +73,7 @@ interface Props {
 
 export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [remaining, setRemaining] = useState(DEFAULT_SETTINGS.initialMinutes * 60);
+  const [remaining, setRemaining] = useState(DEFAULT_SETTINGS.initialSeconds);
   const [isRunning, setIsRunning] = useState(false);
   const [isIntervalRunning, setIsIntervalRunning] = useState(false);
   const [intervalRemaining, setIntervalRemaining] = useState(0);
@@ -84,12 +106,12 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
         isIntervalRunningRef.current = false;
         setIsIntervalRunning(false);
         setIntervalRemaining(0);
-        setRemaining(s.initialMinutes * 60);
+        setRemaining(s.initialSeconds);
         // UI に影響しない非同期クリーンアップ
         clearIntervalEndTime();
         deactivateKeepAwake(WAKE_TAG);
       } else if (!isRunningRef.current && !isIntervalRunningRef.current) {
-        setRemaining(s.initialMinutes * 60);
+        setRemaining(s.initialSeconds);
       }
     });
   }, [settingsVersion]);
@@ -120,14 +142,14 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
       settingsRef.current = s;
       setSettings(s);
       if (s.token && s.secret && s.deviceId && s.endAction !== 'none') {
-        try { await runAction(s.token, s.secret, s.deviceId, s.endAction); }
+        try { await runAction(s.token, s.secret, s.deviceId, s.endAction, s.demoMode); }
         catch { setApiError(actionErrorLabel(s.endAction)); }
       }
       await clearEndTime();
       await cancelTimerEndNotification();
 
-      if (s.lockMode && s.intervalMinutes > 0) {
-        const intervalEnd = et + s.intervalMinutes * 60 * 1000;
+      if (s.lockMode && s.intervalSeconds > 0) {
+        const intervalEnd = et + s.intervalSeconds * 1000;
         if (intervalEnd > Date.now()) {
           // インターバル中: 残り時間で復元
           intervalEndTimeRef.current = intervalEnd;
@@ -141,10 +163,10 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
         }
         // インターバルも経過済み: 初期状態へ
         await clearIntervalEndTime();
-        setRemaining(s.initialMinutes * 60);
+        setRemaining(s.initialSeconds);
         return;
       }
-      setRemaining(s.initialMinutes * 60);
+      setRemaining(s.initialSeconds);
       return;
     }
     // メインタイマー終了情報なし→インターバルだけ残っているケース
@@ -207,7 +229,7 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
     if (mainTimerRef.current) { clearInterval(mainTimerRef.current); mainTimerRef.current = null; }
 
     const s = settingsRef.current;
-    const willStartInterval = s.lockMode && s.intervalMinutes > 0;
+    const willStartInterval = s.lockMode && s.intervalSeconds > 0;
 
     Vibration.vibrate([0, 500, 200, 500, 200, 500]);
     // 前景で終了処理に到達したので、予約済み通知は不要
@@ -215,7 +237,7 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
 
     if (willStartInterval) {
       // フラッシュ防止: UI状態を同期で一括切替してからストレージ・API処理を後ろに回す
-      const durationSec = s.intervalMinutes * 60;
+      const durationSec = s.intervalSeconds;
       const et = Date.now() + durationSec * 1000;
       intervalEndTimeRef.current = et;
       isRunningRef.current = false;
@@ -233,21 +255,21 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
       })();
 
       if (s.token && s.secret && s.deviceId && s.endAction !== 'none') {
-        runAction(s.token, s.secret, s.deviceId, s.endAction)
+        runAction(s.token, s.secret, s.deviceId, s.endAction, s.demoMode)
           .catch(() => setApiError(actionErrorLabel(s.endAction)));
       }
     } else {
       // インターバル無し: 停止して初期値に戻す
       isRunningRef.current = false;
       setIsRunning(false);
-      setRemaining(s.initialMinutes * 60);
+      setRemaining(s.initialSeconds);
       isEndingRef.current = false;
 
       await clearEndTime();
       deactivateKeepAwake(WAKE_TAG);
 
       if (s.token && s.secret && s.deviceId && s.endAction !== 'none') {
-        try { await runAction(s.token, s.secret, s.deviceId, s.endAction); }
+        try { await runAction(s.token, s.secret, s.deviceId, s.endAction, s.demoMode); }
         catch { setApiError(actionErrorLabel(s.endAction)); }
       }
     }
@@ -264,13 +286,13 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
 
   async function handleStart() {
     const s = await reloadSettings();
-    if (!s.token || !s.secret || !s.deviceId) {
+    if (!s.demoMode && (!s.token || !s.secret || !s.deviceId)) {
       Alert.alert('設定が必要です', 'APIトークン・シークレット・デバイスIDを設定してください');
       return;
     }
     setApiError(null);
     if (s.startAction !== 'none') {
-      try { await runAction(s.token, s.secret, s.deviceId, s.startAction); }
+      try { await runAction(s.token, s.secret, s.deviceId, s.startAction, s.demoMode); }
       catch { setApiError(actionErrorLabel(s.startAction)); return; }
     }
 
@@ -297,7 +319,7 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
 
     const s = settingsRef.current;
     if (s.token && s.secret && s.deviceId && s.endAction !== 'none') {
-      try { await runAction(s.token, s.secret, s.deviceId, s.endAction); }
+      try { await runAction(s.token, s.secret, s.deviceId, s.endAction, s.demoMode); }
       catch { setApiError(actionErrorLabel(s.endAction)); }
     }
   }
@@ -305,7 +327,7 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
   async function handleReset() {
     if (isRunningRef.current) await handleStop();
     const s = await reloadSettings();
-    setRemaining(s.initialMinutes * 60);
+    setRemaining(s.initialSeconds);
   }
 
   function adjust(deltaSec: number) {
@@ -356,7 +378,7 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
     isIntervalRunningRef.current = false;
     setIsIntervalRunning(false);
     isIntervalEndingRef.current = false;
-    setRemaining(settingsRef.current.initialMinutes * 60);
+    setRemaining(settingsRef.current.initialSeconds);
     Vibration.vibrate([0, 300, 200, 300]);
   }
 
@@ -367,13 +389,31 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
     isIntervalRunningRef.current = false;
     setIsIntervalRunning(false);
     setIntervalRemaining(0);
-    setRemaining(settingsRef.current.initialMinutes * 60);
+    setRemaining(settingsRef.current.initialSeconds);
   }
 
   // ---- 表示ロジック ----
   const lock = settings.lockMode;
-  const warningThreshold = settings.warningMinutes * 60;
+  const warningThreshold = settings.warningSeconds;
   const isWarning = isRunning && remaining > 0 && remaining <= warningThreshold;
+
+  // 状態変化を VoiceOver にアナウンス
+  const prevIsWarningRef = useRef(false);
+  const prevIsIntervalRunningRef = useRef(false);
+  useEffect(() => {
+    if (isWarning && !prevIsWarningRef.current) {
+      AccessibilityInfo.announceForAccessibility('残り時間がまもなく終了します');
+    }
+    prevIsWarningRef.current = isWarning;
+  }, [isWarning]);
+  useEffect(() => {
+    if (isIntervalRunning && !prevIsIntervalRunningRef.current) {
+      AccessibilityInfo.announceForAccessibility('インターバル開始。次のスタートまでお待ちください');
+    } else if (!isIntervalRunning && prevIsIntervalRunningRef.current) {
+      AccessibilityInfo.announceForAccessibility('インターバル終了。スタート可能です');
+    }
+    prevIsIntervalRunningRef.current = isIntervalRunning;
+  }, [isIntervalRunning]);
 
   const bgColor = isIntervalRunning ? '#FFF8DC'
     : isWarning ? '#8B0000'
@@ -381,7 +421,7 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
   const onLight = isIntervalRunning;
   const textColor = onLight ? '#333' : '#fff';
   const subColor = onLight ? '#666' : '#aaa';
-  const qs = settings.quickAdjustMinutes;
+  const qs = settings.quickAdjustSeconds;
 
   const showAdjustButtons = !lock && !isIntervalRunning;
   const showReset = !lock && !isIntervalRunning;
@@ -389,6 +429,9 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
   const baseFontSize = isLandscape ? 120 : 81;
   // ロック中カウントダウン時（ボタンなし）は1.3倍。adjustsFontSizeToFit で幅を超えたら自動縮小
   const timerFontSize = (lock && isRunning) ? Math.round(baseFontSize * 1.3) : baseFontSize;
+
+  const displaySec = isIntervalRunning ? intervalRemaining : remaining;
+  const timerA11yLabel = `${isIntervalRunning ? 'インターバル残り' : '残り時間'} ${fmtSpeech(displaySec)}`;
 
   const timerArea = (
     <View style={styles.timerWrap}>
@@ -400,8 +443,10 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
         }]}
         adjustsFontSizeToFit
         numberOfLines={1}
+        accessibilityLabel={timerA11yLabel}
+        accessibilityRole="text"
       >
-        {fmt(isIntervalRunning ? intervalRemaining : remaining)}
+        {fmt(displaySec)}
       </Text>
 
       {/* 上部ラベル: absolute なのでタイマー位置に影響しない */}
@@ -441,6 +486,9 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
           style={[styles.mainBtn, { backgroundColor: '#c0392b', width: 110, height: 110, borderRadius: 55 }]}
           onPress={handleStop}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="停止"
+          accessibilityHint="タイマーを停止して機器をオフにします"
         >
           <Text style={[styles.mainBtnText, { fontSize: 20 }]}>停止</Text>
         </TouchableOpacity>
@@ -450,6 +498,9 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
           style={[styles.mainBtn, { backgroundColor: '#27ae60', width: 110, height: 110, borderRadius: 55 }]}
           onPress={handleStart}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="スタート"
+          accessibilityHint="タイマーを開始して機器をオンにします"
         >
           <Text style={[styles.mainBtnText, { fontSize: 20 }]}>スタート</Text>
         </TouchableOpacity>
@@ -458,6 +509,10 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
         <TouchableOpacity
           style={[styles.mainBtn, { backgroundColor: '#555', width: 110, height: 110, borderRadius: 55 }]}
           activeOpacity={1}
+          accessibilityRole="button"
+          accessibilityLabel="スタート（待機中）"
+          accessibilityState={{ disabled: true }}
+          accessibilityHint="インターバル終了までお待ちください"
         >
           <Text style={[styles.mainBtnText, { fontSize: 20 }]}>スタート</Text>
         </TouchableOpacity>
@@ -470,19 +525,35 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
     <>
       {showAdjustButtons && (
         <View style={styles.row}>
-          <TouchableOpacity style={styles.quickBtn} onPress={() => adjust(-qs * 60)}>
-            <Text style={styles.quickBtnText}>－{qs}分</Text>
+          <TouchableOpacity
+            style={styles.quickBtn}
+            onPress={() => adjust(-qs)}
+            accessibilityRole="button"
+            accessibilityLabel={`${formatHMSJapanese(qs)}減らす`}
+          >
+            <Text style={styles.quickBtnText}>－{formatHMSJapanese(qs)}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickBtn} onPress={() => adjust(qs * 60)}>
-            <Text style={styles.quickBtnText}>＋{qs}分</Text>
+          <TouchableOpacity
+            style={styles.quickBtn}
+            onPress={() => adjust(qs)}
+            accessibilityRole="button"
+            accessibilityLabel={`${formatHMSJapanese(qs)}追加`}
+          >
+            <Text style={styles.quickBtnText}>＋{formatHMSJapanese(qs)}</Text>
           </TouchableOpacity>
         </View>
       )}
       {showAdjustButtons && (
         <View style={styles.row}>
-          {([{ label: '－1分', delta: -60 }, { label: '－10秒', delta: -10 },
-            { label: '＋10秒', delta: 10 }, { label: '＋1分', delta: 60 }] as const).map(({ label, delta }) => (
-            <TouchableOpacity key={label} style={styles.fineBtn} onPress={() => adjust(delta)}>
+          {FINE_ADJUST_BUTTONS.map(({ label, a11y, delta }) => (
+            <TouchableOpacity
+              key={label}
+              style={styles.fineBtn}
+              onPress={() => adjust(delta)}
+              hitSlop={FINE_HITSLOP}
+              accessibilityRole="button"
+              accessibilityLabel={a11y}
+            >
               <Text style={styles.fineBtnText}>{label}</Text>
             </TouchableOpacity>
           ))}
@@ -490,9 +561,16 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
       )}
       <View style={styles.buttonsRow}>
         {showReset && (
-          <TouchableOpacity style={styles.resetBtn} onPress={handleReset} activeOpacity={0.8}>
-            <Text style={styles.resetBtnIcon}>↺</Text>
-            <Text style={styles.resetBtnLabel}>リセット</Text>
+          <TouchableOpacity
+            style={styles.resetBtn}
+            onPress={handleReset}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="リセット"
+            accessibilityHint="タイマーを初期時間に戻します"
+          >
+            <Text style={styles.resetBtnIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">↺</Text>
+            <Text style={styles.resetBtnLabel} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">リセット</Text>
           </TouchableOpacity>
         )}
         {isRunning && !lock && (
@@ -500,6 +578,9 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
             style={[styles.mainBtn, { backgroundColor: '#c0392b' }]}
             onPress={handleStop}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="停止"
+            accessibilityHint="タイマーを停止して機器をオフにします"
           >
             <Text style={styles.mainBtnText}>停止</Text>
           </TouchableOpacity>
@@ -509,12 +590,22 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
             style={[styles.mainBtn, { backgroundColor: '#27ae60' }]}
             onPress={handleStart}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="スタート"
+            accessibilityHint="タイマーを開始して機器をオンにします"
           >
             <Text style={styles.mainBtnText}>スタート</Text>
           </TouchableOpacity>
         )}
         {isIntervalRunning && !lock && (
-          <TouchableOpacity style={[styles.mainBtn, { backgroundColor: '#555' }]} activeOpacity={1}>
+          <TouchableOpacity
+            style={[styles.mainBtn, { backgroundColor: '#555' }]}
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityLabel="スタート（待機中）"
+            accessibilityState={{ disabled: true }}
+            accessibilityHint="インターバル終了までお待ちください"
+          >
             <Text style={styles.mainBtnText}>スタート</Text>
           </TouchableOpacity>
         )}
@@ -529,17 +620,33 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
         {showAdjustButtons && (
           <>
             <View style={[styles.row, styles.rowCompact]}>
-              <TouchableOpacity style={[styles.quickBtn, styles.quickBtnCompact]} onPress={() => adjust(-qs * 60)}>
-                <Text style={[styles.quickBtnText, styles.quickBtnTextCompact]}>－{qs}分</Text>
+              <TouchableOpacity
+                style={[styles.quickBtn, styles.quickBtnCompact]}
+                onPress={() => adjust(-qs)}
+                accessibilityRole="button"
+                accessibilityLabel={`${formatHMSJapanese(qs)}減らす`}
+              >
+                <Text style={[styles.quickBtnText, styles.quickBtnTextCompact]}>－{formatHMSJapanese(qs)}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.quickBtn, styles.quickBtnCompact]} onPress={() => adjust(qs * 60)}>
-                <Text style={[styles.quickBtnText, styles.quickBtnTextCompact]}>＋{qs}分</Text>
+              <TouchableOpacity
+                style={[styles.quickBtn, styles.quickBtnCompact]}
+                onPress={() => adjust(qs)}
+                accessibilityRole="button"
+                accessibilityLabel={`${formatHMSJapanese(qs)}追加`}
+              >
+                <Text style={[styles.quickBtnText, styles.quickBtnTextCompact]}>＋{formatHMSJapanese(qs)}</Text>
               </TouchableOpacity>
             </View>
             <View style={[styles.row, { marginBottom: 0 }]}>
-              {([{ label: '－1分', delta: -60 }, { label: '－10秒', delta: -10 },
-                { label: '＋10秒', delta: 10 }, { label: '＋1分', delta: 60 }] as const).map(({ label, delta }) => (
-                <TouchableOpacity key={label} style={[styles.fineBtn, styles.fineBtnCompact]} onPress={() => adjust(delta)}>
+              {FINE_ADJUST_BUTTONS.map(({ label, a11y, delta }) => (
+                <TouchableOpacity
+                  key={label}
+                  style={[styles.fineBtn, styles.fineBtnCompact]}
+                  onPress={() => adjust(delta)}
+                  hitSlop={FINE_HITSLOP}
+                  accessibilityRole="button"
+                  accessibilityLabel={a11y}
+                >
                   <Text style={[styles.fineBtnText, styles.fineBtnTextCompact]}>{label}</Text>
                 </TouchableOpacity>
               ))}
@@ -553,9 +660,12 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
             style={[styles.resetBtn, { width: 76, height: 76, borderRadius: 38 }]}
             onPress={handleReset}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="リセット"
+            accessibilityHint="タイマーを初期時間に戻します"
           >
-            <Text style={[styles.resetBtnIcon, { fontSize: 22 }]}>↺</Text>
-            <Text style={[styles.resetBtnLabel, { fontSize: 10 }]}>リセット</Text>
+            <Text style={[styles.resetBtnIcon, { fontSize: 22 }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">↺</Text>
+            <Text style={[styles.resetBtnLabel, { fontSize: 10 }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">リセット</Text>
           </TouchableOpacity>
         )}
         {mainButton}
@@ -568,10 +678,27 @@ export default function TimerScreen({ onOpenSettings, settingsVersion }: Props) 
       <StatusBar style={onLight ? 'dark' : 'light'} backgroundColor={bgColor} />
 
       <View style={styles.header}>
-        <Text style={[styles.appTitle, { color: textColor }]}>BotTimer</Text>
-        <TouchableOpacity onPress={onOpenSettings}>
-          <Text style={[styles.settingsBtn, { color: onLight ? '#0077cc' : '#4FC3F7' }]}>設定</Text>
-        </TouchableOpacity>
+        <Text
+          style={[styles.appTitle, { color: textColor }]}
+          accessibilityRole="header"
+        >
+          BotTimer
+        </Text>
+        <View style={styles.headerRight}>
+          {settings.demoMode && (
+            <View style={styles.demoBadge} accessible accessibilityLabel="デモモード ON">
+              <Text style={styles.demoBadgeText}>DEMO</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            onPress={onOpenSettings}
+            accessibilityRole="button"
+            accessibilityLabel="設定"
+            accessibilityHint="設定画面を開きます"
+          >
+            <Text style={[styles.settingsBtn, { color: onLight ? '#0077cc' : '#4FC3F7' }]}>設定</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 通知不許可時のみ警告バーを表示（タイマー作動中に限る） */}
@@ -597,6 +724,19 @@ const styles = StyleSheet.create({
   },
   appTitle: { fontSize: 20, fontWeight: 'bold' },
   settingsBtn: { fontSize: 16 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  demoBadge: {
+    backgroundColor: '#FFB74D',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  demoBadgeText: {
+    color: '#1a1a1a',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
 
   timerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 

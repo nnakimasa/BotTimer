@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>サポート | BotTimer</title>
+  <meta name="description" content="iOS / Android アプリ「BotTimer」のサポートページ。お問い合わせ・よくある質問・トラブルシューティング。">
+  <style>
+    :root {
+      --text: #1a1a1a;
+      --muted: #555;
+      --border: #e0e0e0;
+      --bg: #ffffff;
+      --link: #2563EB;
+      --accent: #27ae60;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #f0f0f0;
+        --muted: #aaa;
+        --border: #333;
+        --bg: #111;
+        --link: #4FC3F7;
+        --accent: #4ecf85;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+        "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+    main { max-width: 720px; margin: 0 auto; padding: 48px 24px 96px; }
+    h1 { font-size: 26px; margin: 0 0 4px; }
+    .meta {
+      color: var(--muted); font-size: 13px;
+      margin-bottom: 32px; padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    h2 {
+      font-size: 18px; margin: 36px 0 12px;
+      padding-left: 12px; border-left: 3px solid var(--accent);
+    }
+    h3 { font-size: 15px; margin: 20px 0 8px; color: var(--text); }
+    p, li { font-size: 15px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    a { color: var(--link); }
+    code {
+      background: rgba(127, 127, 127, 0.15);
+      padding: 2px 6px; border-radius: 4px; font-size: 13px;
+    }
+    .contact-box {
+      background: rgba(39, 174, 96, 0.1);
+      border-left: 3px solid var(--accent);
+      padding: 16px 20px;
+      border-radius: 4px;
+      margin: 16px 0;
+    }
+    .contact-box p { margin: 4px 0; }
+    .lead { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+    footer {
+      margin-top: 64px; padding-top: 16px;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 12px; text-align: center;
+    }
+    nav { margin-bottom: 24px; }
+    nav a { margin-right: 16px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <nav>
+      <a href="./">トップ</a>
+      <a href="./">プライバシーポリシー</a>
+    </nav>
+
+    <h1>サポート</h1>
+    <div class="meta">
+      対象アプリ: <strong>BotTimer</strong>
+    </div>
+
+    <p class="lead">
+      BotTimer をご利用いただきありがとうございます。お問い合わせ・ご質問・不具合報告は以下までお願いいたします。
+    </p>
+
+    <h2>お問い合わせ</h2>
+    <div class="contact-box">
+      <p><strong>メール:</strong> <a href="mailto:akimasa.dev.ai@gmail.com">akimasa.dev.ai@gmail.com</a></p>
+      <p><strong>対応時間:</strong> 個人開発のため返信に数日かかる場合があります。あらかじめご了承ください。</p>
+    </div>
+
+    <p>お問い合わせの際は、以下の情報を添えていただけるとスムーズです：</p>
+    <ul>
+      <li>ご使用の iOS バージョン（例：iOS 17.4）</li>
+      <li>iPhone の機種名（例：iPhone 12）</li>
+      <li>BotTimer のバージョン（設定画面下部に表示）</li>
+      <li>発生した状況・操作手順</li>
+      <li>可能であればスクリーンショット</li>
+    </ul>
+
+    <h2>よくある質問</h2>
+
+    <h3>Q. タイマー終了時に通知が来ません</h3>
+    <p>以下をご確認ください：</p>
+    <ul>
+      <li><strong>通知許可の状態</strong>：iPhone の「設定 → 通知 → BotTimer」で「通知を許可」が ON か</li>
+      <li><strong>集中モード（おやすみモード等）</strong>：ON のときは通知が抑制されることがあります。「設定 → 集中モード → [現在のモード] → アプリ」で BotTimer を許可済みアプリに追加してください</li>
+      <li><strong>サウンド設定</strong>：iPhone 本体がサイレントモードでないかご確認ください</li>
+    </ul>
+
+    <h3>Q. SwitchBot 機器を選択しても操作できません</h3>
+    <ul>
+      <li>SwitchBot アプリで機器が「オンライン」状態になっているかご確認ください</li>
+      <li>本アプリで対応している機器タイプかご確認ください（プラグ、リレースイッチ、シーリングライト、加湿器、空気清浄機、扇風機など）</li>
+      <li>API トークン・シークレットを再発行してアプリに入力し直してください（SwitchBot 公式アプリ → プロフィール → 設定 → アプリバージョンを 10 回タップ → Developer Options）</li>
+    </ul>
+
+    <h3>Q. 「API トークン・シークレット」はどこで取得できますか</h3>
+    <ol>
+      <li>SwitchBot 公式アプリを開く</li>
+      <li>右下「プロフィール」タブ</li>
+      <li>「設定」をタップ</li>
+      <li>「アプリバージョン」を <strong>10 回連続タップ</strong></li>
+      <li>「Developer Options」が表示されたらタップ</li>
+      <li>「Get Token」をタップしてトークンとシークレットを取得</li>
+    </ol>
+
+    <h3>Q. アプリを閉じている間もタイマーは正確に動きますか</h3>
+    <p>はい、終了時刻を端末に記録しているため、アプリを閉じても再起動しても正確に動作します。タイマー終了時刻にはローカル通知でお知らせします。</p>
+
+    <h3>Q. ロックモードとは何ですか</h3>
+    <p>タイマー実行中の誤操作を防ぐ機能です。ON にすると、タイマー走行中は停止・時間変更ができなくなります。お子様や来客が触れる環境での使用におすすめです。</p>
+
+    <h3>Q. デモモードとは何ですか</h3>
+    <p>SwitchBot 機器がなくてもアプリの動作を試せるモードです。設定画面の「デモモード」を ON にすると、API 通信を行わずアプリ単独で動作確認できます。</p>
+
+    <h3>Q. 個人情報は送信されますか</h3>
+    <p>本アプリは個人情報を一切収集・送信しません。詳しくは <a href="./">プライバシーポリシー</a> をご覧ください。</p>
+
+    <h2>不具合報告・機能要望</h2>
+    <p>不具合や機能の追加要望は、上記メールアドレスまでお気軽にお寄せください。すべての要望にお応えできるとは限りませんが、すべて拝見しています。</p>
+
+    <h2>本アプリについて</h2>
+    <p>BotTimer は SwitchBot 社の公式アプリではなく、同社が提供する公開 API を用いた個人開発の非公式アプリです。SwitchBot は SwitchBot 社の商標です。</p>
+
+    <footer>
+      © BotTimer
+    </footer>
+  </main>
+</body>
+</html>

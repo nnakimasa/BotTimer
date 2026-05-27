@@ -43,3 +43,10 @@ yarn-error.*
 # Claude Code / Playwright MCP local working files
 .claude/
 .playwright-mcp/
+
+# Internal working files (App Store docs, build notes)
+display/
+legal/APP_STORE_LISTING.md
+legal/DEMO_SETUP.md
+legal/REVIEW_NOTES.md
+scripts/eas-build-guide.md

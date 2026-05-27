@@ -14,14 +14,25 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.akimasa.bottimer",
+      "bundleIdentifier": "io.github.nnakimasa.bottimer",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyCollectedDataTypes": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
       }
     },
     "android": {
-      "package": "com.akimasa.bottimer",
+      "package": "io.github.nnakimasa.bottimer",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -41,6 +52,18 @@
           "color": "#27ae60"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9e87f527-2ce8-41d7-86c1-abf4e7627427"
+      }
+    },
+    "owner": "akimasa26",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9e87f527-2ce8-41d7-86c1-abf4e7627427"
+    }
   }
 }

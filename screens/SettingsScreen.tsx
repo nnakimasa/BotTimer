@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   BackHandler,
   FlatList,
+  KeyboardAvoidingView,
+  Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -17,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { DEFAULT_SETTINGS, DeviceAction, getSettings, saveSettings, Settings } from '../utils/storage';
 import { getDevices, SwitchBotDevice } from '../utils/switchbot';
+import DurationField from '../components/DurationField';
 
 interface Props {
   onBack: () => void;
@@ -33,6 +38,15 @@ export default function SettingsScreen({ onBack }: Props) {
   const [apiDraftToken, setApiDraftToken] = useState('');
   const [apiDraftSecret, setApiDraftSecret] = useState('');
 
+  // Reduce Motion 設定を取得してモーダルのアニメーションを制御
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => sub.remove();
+  }, []);
+  const modalAnimation = reduceMotion ? 'fade' : 'slide';
+
   useEffect(() => {
     getSettings().then(setS);
   }, []);
@@ -48,16 +62,16 @@ export default function SettingsScreen({ onBack }: Props) {
   }, [onBack, apiModalVisible, deviceModalVisible]);
 
   const handleSave = async () => {
-    if (!s.initialMinutes || s.initialMinutes <= 0) {
-      Alert.alert('エラー', '初期タイマーは1以上の値を入力してください');
+    if (!s.initialSeconds || s.initialSeconds <= 0) {
+      Alert.alert('エラー', '初期タイマーは 0 より長い時間を設定してください');
       return;
     }
-    if (!s.quickAdjustMinutes || s.quickAdjustMinutes <= 0) {
-      Alert.alert('エラー', 'クイック調整単位は1以上の値を入力してください');
+    if (!s.quickAdjustSeconds || s.quickAdjustSeconds <= 0) {
+      Alert.alert('エラー', 'クイック調整単位は 0 より長い時間を設定してください');
       return;
     }
-    if (s.lockMode && (!s.intervalMinutes || s.intervalMinutes <= 0)) {
-      Alert.alert('エラー', 'インターバル時間は1以上の値を入力してください');
+    if (s.lockMode && (!s.intervalSeconds || s.intervalSeconds <= 0)) {
+      Alert.alert('エラー', 'インターバル時間は 0 より長い時間を設定してください');
       return;
     }
     await saveSettings(s);
@@ -76,13 +90,13 @@ export default function SettingsScreen({ onBack }: Props) {
   };
 
   const handleFetchDevices = async () => {
-    if (!s.token || !s.secret) {
+    if (!s.demoMode && (!s.token || !s.secret)) {
       Alert.alert('エラー', '先に SwitchBot API のトークンとシークレットを設定してください');
       return;
     }
     setLoading(true);
     try {
-      const list = await getDevices(s.token, s.secret);
+      const list = await getDevices(s.token, s.secret, s.demoMode);
       const visible = list.filter(d => d.category !== 'unsupported');
       if (visible.length === 0) {
         Alert.alert('対応デバイスがありません', 'このアプリで操作可能な SwitchBot デバイスが見つかりませんでした。');
@@ -103,12 +117,11 @@ export default function SettingsScreen({ onBack }: Props) {
     setDeviceModalVisible(false);
   };
 
-  const set = (key: keyof Settings, value: string) => {
-    if (key === 'initialMinutes' || key === 'quickAdjustMinutes' || key === 'warningMinutes' || key === 'intervalMinutes') {
-      setS(prev => ({ ...prev, [key]: parseInt(value, 10) || 0 }));
-    } else {
-      setS(prev => ({ ...prev, [key]: value }));
-    }
+  const setDurationField = (
+    key: 'initialSeconds' | 'quickAdjustSeconds' | 'warningSeconds' | 'intervalSeconds',
+    value: number,
+  ) => {
+    setS(prev => ({ ...prev, [key]: value }));
   };
 
   const visibleDevices = useMemo(
@@ -128,26 +141,50 @@ export default function SettingsScreen({ onBack }: Props) {
       <StatusBar style="light" backgroundColor="#111" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="戻る"
+          accessibilityHint="設定を保存せずタイマー画面に戻ります"
+        >
           <Text style={styles.backText}>← 戻る</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>設定</Text>
+        <Text style={styles.title} accessibilityRole="header">設定</Text>
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={styles.kbAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
 
         {/* SwitchBot API */}
-        <Text style={styles.sectionLabel}>SwitchBot API</Text>
+        <Text style={styles.sectionLabel} accessibilityRole="header">SwitchBot API</Text>
         <View style={styles.field}>
           <Text style={styles.label}>APIトークン / シークレット</Text>
           <View style={styles.readonlyRow}>
-            <View style={[styles.readonlyBox, !apiConfigured && styles.readonlyBoxEmpty]}>
+            <View
+              style={[styles.readonlyBox, !apiConfigured && styles.readonlyBoxEmpty]}
+              accessible
+              accessibilityLabel={`APIトークン・シークレット ${apiConfigured ? '設定済み' : '未設定'}`}
+            >
               <Text style={[styles.readonlyText, !apiConfigured && styles.readonlyTextEmpty]}>
                 {apiConfigured ? '●●●●●●●●  設定済み' : '未設定'}
               </Text>
             </View>
-            <TouchableOpacity style={styles.changeBtn} onPress={openApiModal}>
+            <TouchableOpacity
+              style={styles.changeBtn}
+              onPress={openApiModal}
+              accessibilityRole="button"
+              accessibilityLabel={apiConfigured ? 'APIトークン・シークレットを変更' : 'APIトークン・シークレットを設定'}
+              accessibilityHint="入力モーダルを開きます"
+            >
               <Text style={styles.changeBtnText}>{apiConfigured ? '変更' : '設定'}</Text>
             </TouchableOpacity>
           </View>
@@ -157,12 +194,24 @@ export default function SettingsScreen({ onBack }: Props) {
         <View style={styles.field}>
           <Text style={styles.label}>デバイス</Text>
           <View style={styles.readonlyRow}>
-            <View style={[styles.readonlyBox, !s.deviceId && styles.readonlyBoxEmpty]}>
+            <View
+              style={[styles.readonlyBox, !s.deviceId && styles.readonlyBoxEmpty]}
+              accessible
+              accessibilityLabel={`選択中のデバイス ${deviceDisplay}`}
+            >
               <Text style={[styles.readonlyText, !s.deviceId && styles.readonlyTextEmpty]} numberOfLines={1}>
                 {deviceDisplay}
               </Text>
             </View>
-            <TouchableOpacity style={styles.changeBtn} onPress={handleFetchDevices} disabled={loading}>
+            <TouchableOpacity
+              style={styles.changeBtn}
+              onPress={handleFetchDevices}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel={s.deviceId ? 'デバイスを変更' : 'デバイスを選択'}
+              accessibilityHint="SwitchBot のデバイス一覧を取得します"
+              accessibilityState={{ disabled: loading, busy: loading }}
+            >
               {loading
                 ? <ActivityIndicator color="#fff" size="small" />
                 : <Text style={styles.changeBtnText}>{s.deviceId ? '変更' : '選択'}</Text>}
@@ -171,26 +220,53 @@ export default function SettingsScreen({ onBack }: Props) {
         </View>
 
         {/* 動作設定 */}
-        <Text style={styles.sectionLabel}>動作設定</Text>
+        <Text style={styles.sectionLabel} accessibilityRole="header">動作設定</Text>
         <View style={styles.field}>
           <Text style={styles.label}>タイマー開始時</Text>
-          <ActionSegment value={s.startAction} onChange={v => setS(prev => ({ ...prev, startAction: v }))} />
+          <ActionSegment
+            value={s.startAction}
+            onChange={v => setS(prev => ({ ...prev, startAction: v }))}
+            groupLabel="タイマー開始時の動作"
+          />
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>タイマー終了時 / 停止時</Text>
-          <ActionSegment value={s.endAction} onChange={v => setS(prev => ({ ...prev, endAction: v }))} />
+          <ActionSegment
+            value={s.endAction}
+            onChange={v => setS(prev => ({ ...prev, endAction: v }))}
+            groupLabel="タイマー終了時・停止時の動作"
+          />
         </View>
 
         {/* タイマー設定 */}
-        <Text style={styles.sectionLabel}>タイマー設定</Text>
-        <Field label="初期タイマー（分）" value={String(s.initialMinutes)} onChange={v => set('initialMinutes', v)} numeric />
-        <Field label="クイック調整単位（分）" value={String(s.quickAdjustMinutes)} onChange={v => set('quickAdjustMinutes', v)} numeric />
-        <Field label="警告表示の残り時間（分）" value={String(s.warningMinutes)} onChange={v => set('warningMinutes', v)} numeric />
+        <Text style={styles.sectionLabel} accessibilityRole="header">タイマー設定</Text>
+        <DurationField
+          label="初期タイマー"
+          value={s.initialSeconds}
+          onChange={v => setDurationField('initialSeconds', v)}
+          minSeconds={1}
+          reduceMotion={reduceMotion}
+        />
+        <DurationField
+          label="クイック調整単位"
+          value={s.quickAdjustSeconds}
+          onChange={v => setDurationField('quickAdjustSeconds', v)}
+          minSeconds={1}
+          hint="メイン画面の大きい +/- ボタンで増減する単位"
+          reduceMotion={reduceMotion}
+        />
+        <DurationField
+          label="警告表示の残り時間"
+          value={s.warningSeconds}
+          onChange={v => setDurationField('warningSeconds', v)}
+          hint="この時間を切ると画面が赤く表示されます"
+          reduceMotion={reduceMotion}
+        />
 
         {/* ロックモード */}
-        <Text style={styles.sectionLabel}>ロックモード</Text>
+        <Text style={styles.sectionLabel} accessibilityRole="header">ロックモード</Text>
         <View style={styles.switchRow}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.label}>ロックモード</Text>
             <Text style={styles.hint}>ONにすると途中停止・時間変更が不可になります</Text>
           </View>
@@ -199,25 +275,82 @@ export default function SettingsScreen({ onBack }: Props) {
             onValueChange={v => setS(prev => ({ ...prev, lockMode: v }))}
             trackColor={{ false: '#333', true: '#27ae60' }}
             thumbColor="#fff"
+            accessibilityLabel="ロックモード"
+            accessibilityHint="ONにすると途中停止・時間変更が不可になります"
           />
         </View>
         {s.lockMode && (
-          <Field
-            label="インターバル時間（分）"
-            value={String(s.intervalMinutes)}
-            onChange={v => set('intervalMinutes', v)}
-            numeric
+          <DurationField
+            label="インターバル時間"
+            value={s.intervalSeconds}
+            onChange={v => setDurationField('intervalSeconds', v)}
+            minSeconds={1}
+            reduceMotion={reduceMotion}
           />
         )}
 
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+        {/* デモモード */}
+        <Text style={styles.sectionLabel} accessibilityRole="header">デモモード</Text>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.label}>デモモード</Text>
+            <Text style={styles.hint}>
+              ONにすると、SwitchBot 機器なしでアプリの動作を試せます。API 通信は行われません。
+            </Text>
+          </View>
+          <Switch
+            value={s.demoMode}
+            onValueChange={v => setS(prev => ({ ...prev, demoMode: v }))}
+            trackColor={{ false: '#333', true: '#FFB74D' }}
+            thumbColor="#fff"
+            accessibilityLabel="デモモード"
+            accessibilityHint="ONにすると API 通信を行わずアプリ単独で動作確認できます"
+          />
+        </View>
+
+        <TouchableOpacity
+          style={styles.saveBtn}
+          onPress={handleSave}
+          accessibilityRole="button"
+          accessibilityLabel="設定を保存"
+          accessibilityHint="入力した設定を保存してタイマー画面に戻ります"
+        >
           <Text style={styles.saveBtnText}>保存</Text>
         </TouchableOpacity>
+
+        {/* アプリについて */}
+        <Text style={styles.sectionLabel} accessibilityRole="header">アプリについて</Text>
+        <View style={styles.aboutBox} accessible accessibilityRole="text">
+          <Text style={styles.aboutText}>
+            本アプリは SwitchBot 社の公式アプリではありません。同社が提供する公開 API を用いた個人開発の非公式アプリです。
+          </Text>
+          <Text style={styles.aboutTextMuted}>
+            SwitchBot は SwitchBot 社の商標です。
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => Linking.openURL('https://nnakimasa.github.io/bottimer-privacy/')}
+          activeOpacity={0.7}
+          accessibilityRole="link"
+          accessibilityLabel="プライバシーポリシーを開く"
+          accessibilityHint="外部ブラウザでプライバシーポリシーのページを開きます"
+        >
+          <Text style={styles.linkText}>プライバシーポリシー</Text>
+          <Text style={styles.linkArrow} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">↗</Text>
+        </TouchableOpacity>
+        <View style={styles.versionRow}>
+          <Text style={styles.versionText} accessibilityLabel="バージョン 1.0.0">BotTimer v1.0.0</Text>
+        </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* API認証モーダル */}
-      <Modal visible={apiModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+      <Modal visible={apiModalVisible} animationType={modalAnimation} transparent>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>SwitchBot API 認証情報</Text>
@@ -270,11 +403,11 @@ export default function SettingsScreen({ onBack }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* デバイス選択モーダル */}
-      <Modal visible={deviceModalVisible} animationType="slide" transparent>
+      <Modal visible={deviceModalVisible} animationType={modalAnimation} transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -334,36 +467,22 @@ export default function SettingsScreen({ onBack }: Props) {
   );
 }
 
-function Field({ label, value, onChange, placeholder, secure, numeric }: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; secure?: boolean; numeric?: boolean;
+function ActionSegment({ value, onChange, groupLabel }: {
+  value: DeviceAction;
+  onChange: (v: DeviceAction) => void;
+  groupLabel?: string;
 }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor="#555"
-        secureTextEntry={secure}
-        keyboardType={numeric ? 'number-pad' : 'default'}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-    </View>
-  );
-}
-
-function ActionSegment({ value, onChange }: { value: DeviceAction; onChange: (v: DeviceAction) => void }) {
   const options: Array<{ key: DeviceAction; label: string }> = [
     { key: 'on', label: 'ON' },
     { key: 'off', label: 'OFF' },
     { key: 'none', label: '操作なし' },
   ];
   return (
-    <View style={styles.segment}>
+    <View
+      style={styles.segment}
+      accessibilityRole="radiogroup"
+      accessibilityLabel={groupLabel}
+    >
       {options.map(opt => {
         const active = value === opt.key;
         return (
@@ -372,6 +491,9 @@ function ActionSegment({ value, onChange }: { value: DeviceAction; onChange: (v:
             style={[styles.segmentItem, active && styles.segmentItemActive]}
             onPress={() => onChange(opt.key)}
             activeOpacity={0.8}
+            accessibilityRole="radio"
+            accessibilityLabel={opt.label}
+            accessibilityState={{ selected: active, checked: active }}
           >
             <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{opt.label}</Text>
           </TouchableOpacity>
@@ -392,7 +514,9 @@ const styles = StyleSheet.create({
   backText: { color: '#4FC3F7', fontSize: 16 },
   title: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   spacer: { width: 70 },
-  scroll: { flex: 1, padding: 20 },
+  kbAvoid: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 20 },
   sectionLabel: {
     color: '#4FC3F7', fontSize: 12, fontWeight: '700',
     letterSpacing: 1, marginBottom: 12, marginTop: 8,
@@ -502,4 +626,43 @@ const styles = StyleSheet.create({
   deviceIdText: { color: '#555', fontSize: 11, marginTop: 2 },
   deviceWarning: { color: '#FFB74D', fontSize: 11 },
   separator: { height: 1, backgroundColor: '#2a2a2a' },
+
+  aboutBox: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    padding: 14,
+    marginBottom: 12,
+  },
+  aboutText: {
+    color: '#bbb',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  aboutTextMuted: {
+    color: '#666',
+    fontSize: 11,
+    marginTop: 8,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1e1e1e',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#333',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  linkText: { color: '#4FC3F7', fontSize: 14, fontWeight: '600' },
+  linkArrow: { color: '#4FC3F7', fontSize: 14 },
+  versionRow: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 40,
+  },
+  versionText: { color: '#888', fontSize: 13 },
 });

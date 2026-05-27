@@ -7,13 +7,14 @@ export interface Settings {
   secret: string;
   deviceId: string;
   deviceName: string;
-  initialMinutes: number;
-  quickAdjustMinutes: number;
-  warningMinutes: number;
+  initialSeconds: number;
+  quickAdjustSeconds: number;
+  warningSeconds: number;
   lockMode: boolean;
-  intervalMinutes: number;
+  intervalSeconds: number;
   startAction: DeviceAction;
   endAction: DeviceAction;
+  demoMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -21,21 +22,44 @@ export const DEFAULT_SETTINGS: Settings = {
   secret: '',
   deviceId: '',
   deviceName: '',
-  initialMinutes: 60,
-  quickAdjustMinutes: 5,
-  warningMinutes: 5,
+  initialSeconds: 60 * 60,        // 1時間
+  quickAdjustSeconds: 5 * 60,     // 5分
+  warningSeconds: 5 * 60,         // 5分
   lockMode: false,
-  intervalMinutes: 15,
+  intervalSeconds: 15 * 60,       // 15分
   startAction: 'on',
   endAction: 'off',
+  demoMode: false,
 };
 
 const SETTINGS_KEY = 'settings';
 const END_TIME_KEY = 'end_time';
 
+// 旧形式（*Minutes）から新形式（*Seconds）への自動移行。
+// 既存のローカルデータを失わせず、初回読み込み時に変換して保存し直す。
+function migrateLegacyMinutes(raw: Record<string, unknown>): Record<string, unknown> {
+  const migrated = { ...raw };
+  const pairs: Array<[string, string]> = [
+    ['initialMinutes', 'initialSeconds'],
+    ['quickAdjustMinutes', 'quickAdjustSeconds'],
+    ['warningMinutes', 'warningSeconds'],
+    ['intervalMinutes', 'intervalSeconds'],
+  ];
+  for (const [oldKey, newKey] of pairs) {
+    if (migrated[newKey] === undefined && typeof migrated[oldKey] === 'number') {
+      migrated[newKey] = (migrated[oldKey] as number) * 60;
+    }
+    delete migrated[oldKey];
+  }
+  return migrated;
+}
+
 export async function getSettings(): Promise<Settings> {
   const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-  return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+  if (!raw) return { ...DEFAULT_SETTINGS };
+  const parsed = JSON.parse(raw);
+  const migrated = migrateLegacyMinutes(parsed);
+  return { ...DEFAULT_SETTINGS, ...migrated };
 }
 
 export async function saveSettings(s: Settings): Promise<void> {

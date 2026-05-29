@@ -6,8 +6,8 @@ Thank you for your interest in contributing! BotTimer is an individual project, 
 
 When filing a bug report, please include:
 
-- **Device**: iPhone / iPad model name
-- **iOS version**: e.g. iOS 18.3
+- **Device**: iPhone / iPad / Android device model name
+- **OS version**: e.g. iOS 18.3 or Android 14
 - **App version**: shown in Settings screen
 - **Steps to reproduce**: numbered step-by-step
 - **Expected behavior** vs **actual behavior**

@@ -117,6 +117,17 @@ export default function SettingsScreen({ onBack }: Props) {
     setDeviceModalVisible(false);
   };
 
+  const handleHelpNotifications = () => {
+    Alert.alert(
+      '通知が届かないとき',
+      'iOS の集中モード（おやすみモード等）が ON の場合、タイマー終了の通知が抑制されることがあります。\n\n▼ 解消方法\niPhone「設定」→「集中モード」→ 現在のモードを開く →「アプリ」→ BotTimer を「許可」に追加\n\n詳しい FAQ はサポートページをご覧ください。',
+      [
+        { text: '閉じる', style: 'cancel' },
+        { text: 'サポートページを開く', onPress: () => Linking.openURL('https://nnakimasa.github.io/bottimer-privacy/support.html') },
+      ],
+    );
+  };
+
   const setDurationField = (
     key: 'initialSeconds' | 'quickAdjustSeconds' | 'warningSeconds' | 'intervalSeconds',
     value: number,
@@ -328,6 +339,17 @@ export default function SettingsScreen({ onBack }: Props) {
             SwitchBot は SwitchBot 社の商標です。
           </Text>
         </View>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={handleHelpNotifications}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="通知が届かないときの対処方法"
+          accessibilityHint="集中モードで通知が抑制される場合の解消方法を表示します"
+        >
+          <Text style={styles.linkText}>通知が届かないとき</Text>
+          <Text style={styles.linkArrow} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.linkRow}
           onPress={() => Linking.openURL('https://nnakimasa.github.io/bottimer-privacy/')}

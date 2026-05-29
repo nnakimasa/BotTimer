@@ -11,7 +11,7 @@
 
 | プラットフォーム | リンク |
 |---|---|
-| iOS (App Store) | 審査中 / Coming soon |
+| iOS (App Store) | [App Store で入手](https://apps.apple.com/jp/app/bottimer/id6773779764) |
 | Android (APK) | [ダウンロードページ](https://nnakimasa.github.io/BotTimer/) |
 
 ---
@@ -71,8 +71,10 @@ npx expo start
 # Android APK
 eas build --platform android --profile preview
 
-# iOS (requires Apple Developer account)
+# iOS Ad Hoc build for testing (requires Apple Developer account)
 eas build --platform ios --profile preview
+
+# Note: Production App Store build uses --profile production (maintainer only)
 ```
 
 ---
